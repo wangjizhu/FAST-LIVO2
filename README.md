@@ -51,9 +51,11 @@ The [**FAST-Calib**](https://github.com/hku-mars/FAST-Calib) toolkit is recommen
 
 ## 2. Prerequisited
 
-### 2.1 Ubuntu and ROS
+### 2.1 Ubuntu and ROS2
 
-Ubuntu 18.04~20.04.  [ROS Installation](http://wiki.ros.org/ROS/Installation).
+Ubuntu 20.04 / 22.04 with **ROS2** (Foxy / Humble). [ROS2 Installation](https://docs.ros.org/en/humble/Installation.html).
+
+> This `dashuai` branch targets **ROS2 (ament_cmake / rclcpp)**. For the original ROS1 (catkin) version, check out the `main` branch.
 
 ### 2.2 PCL && Eigen && OpenCV
 
@@ -78,34 +80,44 @@ sudo make install
 
 ### 2.4 Vikit
 
-Vikit contains camera models, some math and interpolation functions that we need. Vikit is a catkin project, therefore, download it into your catkin workspace source folder.
+Vikit contains camera models, some math and interpolation functions that we need. This branch only uses **`vikit_common`** (the ROS-agnostic camera/math library) — the ROS1 `vikit_ros` camera-loader has been replaced by a self-contained, node-parameter-based camera loader inside this package. Build a ROS2 (ament) port of `vikit_common` in your ROS2 workspace `src` folder.
 
 ```bash
-# Different from the one used in fast-livo1
-cd catkin_ws/src
-git clone https://github.com/xuankuzcr/rpg_vikit.git 
+# Different from the one used in fast-livo1; build it for ROS2 (ament).
+cd ~/ros2_ws/src
+git clone https://github.com/xuankuzcr/rpg_vikit.git
 ```
+
+> Note: `vikit_common`'s `PinholeCamera` / `EquidistantCamera` constructors are assumed to take `(width, height, scale, fx, fy, cx, cy, <distortion...>)`. If your `vikit_common` fork differs, adjust the camera construction block in `src/LIVMapper.cpp` (`initializeComponents`).
+
+### 2.5 livox_ros_driver2
+
+This branch depends on the ROS2 Livox driver [**livox_ros_driver2**](https://github.com/Livox-SDK/livox_ros_driver2) (provides `livox_ros_driver2/msg/CustomMsg`). Build and source it before building this package.
 
 ## 3. Build
 
-Clone the repository and catkin_make:
+Clone the repository and build with colcon:
 
 ```
-cd ~/catkin_ws/src
-git clone https://github.com/hku-mars/FAST-LIVO2
-cd ../
-catkin_make
-source ~/catkin_ws/devel/setup.bash
+cd ~/ros2_ws/src
+git clone -b dashuai https://github.com/wangjizhu/FAST-LIVO2
+cd ..
+colcon build --symlink-install
+source install/setup.bash
 ```
+
+Make sure `vikit_common` and `livox_ros_driver2` are present in the same workspace (or already sourced) before building.
 
 ## 4. Run our examples
 
 Download FAST-LIVO2-Dataset from [Global-LVBA](https://github.com/xuankuzcr/Global-LVBA) Section IV.
 
 ```
-roslaunch fast_livo mapping_avia.launch
-rosbag play YOUR_DOWNLOADED.bag
+ros2 launch fast_livo mapping_avia.launch.py
+ros2 bag play YOUR_DOWNLOADED_BAG
 ```
+
+> ROS2 uses the `ros2 bag` format (sqlite3/mcap). To replay an original ROS1 `.bag`, convert it first (e.g. with [`rosbags-convert`](https://gitlab.com/ternaris/rosbags)) or play it through the `ros1_bridge`.
 
 
 ## 5. License
