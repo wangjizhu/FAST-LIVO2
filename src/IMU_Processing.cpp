@@ -12,6 +12,7 @@ which is included as part of this source code package.
 
 #include "IMU_Processing.h"
 #include <rclcpp/rclcpp.hpp>
+#include <cassert>
 
 namespace
 {
@@ -550,7 +551,7 @@ void ImuProcess::Process2(LidarMeasureGroup &lidar_meas, StatesGroup &stat, Poin
 {
   double t1, t2, t3;
   t1 = omp_get_wtime();
-  ROS_ASSERT(lidar_meas.lidar != nullptr);
+  assert(lidar_meas.lidar != nullptr);
   if (!imu_en)
   {
     Forward_without_imu(lidar_meas, stat, *cur_pcl_un_);
