@@ -1,7 +1,9 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.8)
 project(fast_livo)
 
-set(CMAKE_BUILD_TYPE "Release")
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release")
+endif()
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
 
 set(CMAKE_CXX_STANDARD 17)
@@ -32,7 +34,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64|ARM|AARCH64)")
 else()
   # x86-64 (Intel/AMD) optimizations
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -mtune=native -funroll-loops") #-flto
-  message(STATUS "Using general x86 optimizations: -O3 -march=native -mtune=native -funroll-loops") 
+  message(STATUS "Using general x86 optimizations: -O3 -march=native -mtune=native -funroll-loops")
   add_definitions(-DX86_ARCH)
 endif()
 
@@ -75,23 +77,23 @@ else()
   message(STATUS "mimalloc not found, proceeding without it")
 endif()
 
-# Find catkin and required dependencies
-find_package(catkin REQUIRED COMPONENTS
-  geometry_msgs
-  nav_msgs
-  sensor_msgs
-  roscpp
-  rospy
-  std_msgs
-  pcl_ros
-  tf
-  message_generation
-  eigen_conversions
-  vikit_common
-  vikit_ros
-  cv_bridge
-  image_transport
-)
+# Find ament and required ROS2 dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_eigen REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(image_transport REQUIRED)
+find_package(livox_ros_driver2 REQUIRED)
+find_package(vikit_common REQUIRED)
 
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
@@ -101,47 +103,95 @@ find_package(Boost REQUIRED COMPONENTS thread)
 
 set(Sophus_LIBRARIES libSophus.so)
 
-# Define the catkin package
-catkin_package(
-  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs message_runtime cv_bridge vikit_common vikit_ros image_transport
-  DEPENDS EIGEN3 PCL OpenCV Sophus
+# All ROS2 (ament) dependencies, shared by every target below
+set(dependencies
+  rclcpp
+  std_msgs
+  sensor_msgs
+  geometry_msgs
+  nav_msgs
+  visualization_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  tf2_eigen
+  pcl_conversions
+  cv_bridge
+  image_transport
+  livox_ros_driver2
+  vikit_common
 )
 
 # Include directories for dependencies
 include_directories(
-  ${catkin_INCLUDE_DIRS}
+  include
   ${EIGEN3_INCLUDE_DIR}
   ${PCL_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   ${Sophus_INCLUDE_DIRS}
-  include
 )
 
-# Add libraries
-add_library(vio src/vio.cpp src/frame.cpp src/visual_point.cpp)
-add_library(lio src/voxel_map.cpp)
-add_library(pre src/preprocess.cpp)
-add_library(imu_proc src/IMU_Processing.cpp)
-add_library(laser_mapping src/LIVMapper.cpp)
-
-# Add the main executable
-add_executable(fastlivo_mapping src/main.cpp)
-
-# Link libraries to the executable
-target_link_libraries(fastlivo_mapping
-  laser_mapping
-  vio
-  lio
-  pre
-  imu_proc
-  ${catkin_LIBRARIES}
+# Third-party (non-ament) libraries linked by every target below
+set(thirdparty_libs
   ${PCL_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${Sophus_LIBRARIES}
   ${Boost_LIBRARIES}
 )
 
+# Add libraries
+add_library(vio src/vio.cpp src/frame.cpp src/visual_point.cpp)
+ament_target_dependencies(vio ${dependencies})
+target_link_libraries(vio ${thirdparty_libs})
+
+add_library(lio src/voxel_map.cpp)
+ament_target_dependencies(lio ${dependencies})
+target_link_libraries(lio ${thirdparty_libs})
+
+add_library(pre src/preprocess.cpp)
+ament_target_dependencies(pre ${dependencies})
+target_link_libraries(pre ${thirdparty_libs})
+
+add_library(imu_proc src/IMU_Processing.cpp)
+ament_target_dependencies(imu_proc ${dependencies})
+target_link_libraries(imu_proc ${thirdparty_libs})
+
+add_library(laser_mapping src/LIVMapper.cpp)
+ament_target_dependencies(laser_mapping ${dependencies})
+target_link_libraries(laser_mapping vio lio pre imu_proc ${thirdparty_libs})
+
+# Add the main executable
+add_executable(fastlivo_mapping src/main.cpp)
+ament_target_dependencies(fastlivo_mapping ${dependencies})
+target_link_libraries(fastlivo_mapping
+  laser_mapping
+  vio
+  lio
+  pre
+  imu_proc
+  ${thirdparty_libs}
+)
+
 # Link mimalloc if found
 if(mimalloc_FOUND)
   target_link_libraries(fastlivo_mapping mimalloc)
 endif()
+
+# Install targets and resources
+install(TARGETS
+  fastlivo_mapping
+  vio
+  lio
+  pre
+  imu_proc
+  laser_mapping
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY launch config rviz_cfg
+  DESTINATION share/${PROJECT_NAME}
+)
+
+ament_package()
