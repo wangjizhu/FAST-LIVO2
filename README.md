@@ -1,5 +1,8 @@
 # FAST-LIVO2
 
+> **`dashuai` 分支说明**：本分支由 **Claude Opus 4.8** 将原项目从 ROS1 (catkin) 转换为 **ROS2 (ament_cmake / rclcpp) 兼容**状态。
+> The `dashuai` branch ports the original project from ROS1 (catkin) to **ROS2 (ament_cmake / rclcpp)** using **Claude Opus 4.8**.
+
 ## FAST-LIVO2: Fast, Direct LiDAR-Inertial-Visual Odometry
 
 ### 📢 News
